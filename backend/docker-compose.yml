@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sbf-postgres
+    environment:
+      POSTGRES_DB: sbf_db
+      POSTGRES_USER: sbf_user
+      POSTGRES_PASSWORD: sbf_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - postgres-network
+
+volumes:
+  postgres_data:
+
+networks:
+  postgres-network:
+    driver: bridge
