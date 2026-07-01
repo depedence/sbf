@@ -9,6 +9,7 @@ import ru.sbf.entity.Account;
 import ru.sbf.entity.Category;
 import ru.sbf.entity.Transaction;
 import ru.sbf.entity.User;
+import ru.sbf.exception.AppException;
 import ru.sbf.repository.AccountRepository;
 import ru.sbf.repository.CategoryRepository;
 import ru.sbf.repository.TransactionRepository;
@@ -28,9 +29,9 @@ public class TransactionService {
     public Transaction createTransaction(TransactionRequest request) {
         User user = userService.getCurrentUser();
         Account account = accountRepository.findByIdAndUser(request.getAccountId(), user)
-                .orElseThrow(() -> new EntityNotFoundException("Account not found"));
+                .orElseThrow(() -> new AppException.NotFoundException("Account not found"));
         Category category = categoryRepository.findByIdAndUser(request.getCategoryId(), user)
-                .orElseThrow(() -> new EntityNotFoundException("Category not found"));
+                .orElseThrow(() -> new AppException.NotFoundException("Category not found"));
 
         Transaction transaction = new Transaction();
         transaction.setUser(user);
@@ -57,12 +58,12 @@ public class TransactionService {
 
     public void deleteTransaction(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new EntityNotFoundException("Transaction not found"));
+                .orElseThrow(() -> new AppException.NotFoundException("Transaction not found"));
 
         User currentUser = userService.getCurrentUser();
 
         if (!transaction.getUser().getId().equals(currentUser.getId())) {
-            throw new RuntimeException("Access denied");
+            throw new AppException.AccessDeniedException("Access denied");
         }
 
         Account account = transaction.getAccount();

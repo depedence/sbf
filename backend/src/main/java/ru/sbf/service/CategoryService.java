@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.sbf.entity.Category;
 import ru.sbf.entity.User;
+import ru.sbf.exception.AppException;
 import ru.sbf.repository.CategoryRepository;
 
 import java.util.List;
@@ -34,7 +35,7 @@ public class CategoryService {
     public void deleteCategory(Long id) {
         User user = userService.getCurrentUser();
         Category category = categoryRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> new AppException.NotFoundException("Category not found"));
         categoryRepository.delete(category);
     }
 }

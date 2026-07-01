@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.sbf.entity.Account;
 import ru.sbf.entity.User;
+import ru.sbf.exception.AppException;
 import ru.sbf.repository.AccountRepository;
 
 import java.util.List;
@@ -33,7 +34,7 @@ public class AccountService {
     public void deleteAccount(Long id) {
         User user = userService.getCurrentUser();
         Account account = accountRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Account not found"));
+                .orElseThrow(() -> new AppException.NotFoundException("Account not found"));
         accountRepository.delete(account);
     }
 }
