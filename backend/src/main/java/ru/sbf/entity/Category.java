@@ -23,6 +23,10 @@ public class Category {
     @Column(nullable = false)
     String name;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    Transaction.TransactionType type;
+
     @Column(name = "created_at", nullable = false)
     LocalDateTime createdAt;
 
