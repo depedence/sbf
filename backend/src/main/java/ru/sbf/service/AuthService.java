@@ -8,6 +8,7 @@ import ru.sbf.dto.request.LoginRequest;
 import ru.sbf.dto.request.RegisterRequest;
 import ru.sbf.dto.response.AuthResponse;
 import ru.sbf.entity.User;
+import ru.sbf.exception.AppException;
 import ru.sbf.repository.UserRepository;
 
 @Service
@@ -26,7 +27,7 @@ public class AuthService {
             throw new IllegalArgumentException("Email is required");
         }
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email already exists");
+            throw new AppException.AlreadyExistsException("Email already exists");
         }
 
         User user = new User();

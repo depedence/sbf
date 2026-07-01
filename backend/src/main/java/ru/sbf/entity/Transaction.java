@@ -50,7 +50,7 @@ public class Transaction {
         createdAt = LocalDateTime.now();
     }
 
-    enum TransactionType {
+    public enum TransactionType {
         INCOME,
         EXPENSE
     }
