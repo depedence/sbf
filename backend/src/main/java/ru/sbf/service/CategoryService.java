@@ -2,6 +2,7 @@ package ru.sbf.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import ru.sbf.dto.request.CategoryRequest;
 import ru.sbf.entity.Category;
 import ru.sbf.entity.User;
 import ru.sbf.exception.AppException;
@@ -16,12 +17,20 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final UserService userService;
 
-    public Category createCategory(String name) {
+    public Category createCategory(CategoryRequest request) {
         User user = userService.getCurrentUser();
+
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (request.getType() == null) {
+            throw new IllegalArgumentException("Type is required");
+        }
 
         Category category = new Category();
         category.setUser(user);
-        category.setName(name);
+        category.setName(request.getName());
+        category.setType(request.getType());
 
         return categoryRepository.save(category);
     }

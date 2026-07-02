@@ -3,6 +3,7 @@ package ru.sbf.controller;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import ru.sbf.dto.request.CategoryRequest;
 import ru.sbf.dto.response.MessageResponse;
 import ru.sbf.entity.Category;
 import ru.sbf.service.CategoryService;
@@ -17,8 +18,8 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @PostMapping
-    public Category createCategory(@RequestBody String name) {
-        return categoryService.createCategory(name);
+    public Category createCategory(@RequestBody CategoryRequest request) {
+        return categoryService.createCategory(request);
     }
 
     @GetMapping
