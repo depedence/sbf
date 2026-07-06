@@ -8,6 +8,7 @@ import io.restassured.http.ContentType;
 import io.restassured.specification.RequestSpecification;
 import io.restassured.specification.ResponseSpecification;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -22,8 +23,12 @@ public abstract class BaseApiTest {
     protected RequestSpecification requestSpec;
     protected ResponseSpecification responseSpec;
 
+    @Autowired
+    DataBaseCleaner dataBaseCleaner;
+
     @BeforeEach
     void setup() {
+        dataBaseCleaner.cleanDb();
         RestAssured.baseURI = "http://localhost";
         RestAssured.basePath = "/api";
         RestAssured.port = port;
