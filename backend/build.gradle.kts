@@ -37,6 +37,7 @@ dependencies {
     testImplementation("org.springframework.security:spring-security-test")
     testImplementation("io.rest-assured:rest-assured:5.5.0")
     testImplementation("io.rest-assured:json-path:5.5.0")
+    testImplementation("com.codeborne:selenide:7.16.2")
 
     testCompileOnly("org.projectlombok:lombok")
 
