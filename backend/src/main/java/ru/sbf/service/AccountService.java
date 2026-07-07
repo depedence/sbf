@@ -17,6 +17,10 @@ public class AccountService {
     private final UserService userService;
 
     public Account createAccount(String name) {
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Bad Request");
+        }
+
         User user = userService.getCurrentUser();
 
         Account account = new Account();
