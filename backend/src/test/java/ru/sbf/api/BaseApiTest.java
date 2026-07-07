@@ -22,13 +22,14 @@ public abstract class BaseApiTest {
     int port;
 
     protected RequestSpecification requestSpec;
+    protected RequestSpecification authSpec;
     protected ResponseSpecification responseSpec;
 
     @Autowired
     DataBaseCleaner dataBaseCleaner;
 
     @BeforeEach
-    void setup() {
+    void setupRestAssured() {
         dataBaseCleaner.cleanDb();
         RestAssured.baseURI = "http://localhost";
         RestAssured.basePath = "/api";

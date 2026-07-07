@@ -13,4 +13,8 @@ public class DataFactory {
                 .password(UUID.randomUUID().toString().substring(0, 12))
                 .build();
     }
+
+    public static String randomName() {
+        return "name_" + UUID.randomUUID().toString().substring(0, 6);
+    }
 }
