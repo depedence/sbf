@@ -4,7 +4,8 @@ import com.codeborne.selenide.Selenide;
 
 public class AuthPage {
 
-    public record TestUser(String name, String email, String password) {}
+    public record TestUser(String name, String email, String password) {
+    }
 
     public AuthPage openRegister() {
         Selenide.open("/register");
@@ -21,14 +22,14 @@ public class AuthPage {
             Selenide.$("#name").setValue(user.name);
             Selenide.$("#confirmPassword").setValue(user.password);
         }
-        
+
         Selenide.$("#email").setValue(user.email);
         Selenide.$("#password").setValue(user.password);
         return this;
     }
 
-    public MainPage login() {
+    public MainPage1 login() {
         Selenide.$(".btn-primary").click();
-        return new MainPage();
+        return new MainPage1();
     }
 }
