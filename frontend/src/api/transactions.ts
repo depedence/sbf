@@ -1,24 +1,14 @@
-import { client } from './client';
-import type { Transaction } from './types';
+import { api } from './client';
+import type { MessageResponse, Transaction, TransactionRequest } from '../types';
 
-export interface TransactionPayload {
-  accountId: number;
-  categoryId: number;
-  amount: number;
-  comment: string;
-  date: string;
+export function getTransactions() {
+  return api.get<Transaction[]>('/transaction').then((r) => r.data);
 }
 
-export async function getTransactions(): Promise<Transaction[]> {
-  const { data } = await client.get<Transaction[]>('/transaction');
-  return data;
+export function createTransaction(request: TransactionRequest) {
+  return api.post<Transaction>('/transaction', request).then((r) => r.data);
 }
 
-export async function createTransaction(payload: TransactionPayload): Promise<Transaction> {
-  const { data } = await client.post<Transaction>('/transaction', payload);
-  return data;
-}
-
-export async function deleteTransaction(id: number): Promise<void> {
-  await client.delete(`/transaction/${id}`);
+export function deleteTransaction(id: number) {
+  return api.delete<MessageResponse>(`/transaction/${id}`).then((r) => r.data);
 }

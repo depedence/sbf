@@ -1,20 +1,21 @@
-import { client } from './client';
-import type { Account } from './types';
+import { api } from './client';
+import type { Account, MessageResponse } from '../types';
 
-export async function getAccounts(): Promise<Account[]> {
-  const { data } = await client.get<Account[]>('/account');
-  return data;
+export function getAccounts() {
+  return api.get<Account[]>('/account').then((r) => r.data);
 }
 
-export async function createAccount(name: string): Promise<Account> {
-  // Backend controller signature is `createAccount(@RequestBody String name)` —
-  // it expects the raw JSON string body (e.g. "My account"), not { name }.
-  const { data } = await client.post<Account>('/account', name, {
-    headers: { 'Content-Type': 'application/json' },
-  });
-  return data;
+// Backend expects the raw name as a JSON string body (e.g. `"Cash"`), not { name }.
+// Axios's default transformRequest JSON.stringifies the payload once it sees an
+// application/json content type, which turns this plain string into that literal.
+export function createAccount(name: string) {
+  return api
+    .post<Account>('/account', name, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    .then((r) => r.data);
 }
 
-export async function deleteAccount(id: number): Promise<void> {
-  await client.delete(`/account/${id}`);
+export function deleteAccount(id: number) {
+  return api.delete<MessageResponse>(`/account/${id}`).then((r) => r.data);
 }

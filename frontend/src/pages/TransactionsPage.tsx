@@ -1,252 +1,224 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { getAccounts } from '../api/accounts';
-import { getCategories } from '../api/categories';
-import { createTransaction, deleteTransaction, getTransactions } from '../api/transactions';
-import { getErrorMessage } from '../api/client';
-import type { Account, Category, Transaction } from '../api/types';
-import { formatDateTime, toDatetimeLocalValue } from '../lib/datetime';
-import ErrorText from '../components/ErrorText';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { ArrowLeftRight, Plus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import clsx from 'clsx';
+import { PageHeader } from '../components/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Select } from '../components/ui/Select';
+import { Chip } from '../components/ui/Chip';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Spinner } from '../components/ui/Spinner';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { useFinanceStore } from '../store/financeStore';
+import { formatDateTime, formatMoney } from '../lib/format';
+import type { TransactionType } from '../types';
 
-const amountFormatter = new Intl.NumberFormat('ru-RU', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
+function toBackendDateTime(datetimeLocalValue: string): string {
+  return datetimeLocalValue.length === 16 ? `${datetimeLocalValue}:00` : datetimeLocalValue;
+}
 
-export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+function nowForInput(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+export function TransactionsPage() {
+  const accounts = useFinanceStore((s) => s.accounts);
+  const categories = useFinanceStore((s) => s.categories);
+  const transactions = useFinanceStore((s) => s.transactions);
+  const loading = useFinanceStore((s) => s.transactionsLoading);
+  const fetchAll = useFinanceStore((s) => s.fetchAll);
+  const createTransaction = useFinanceStore((s) => s.createTransaction);
+  const deleteTransaction = useFinanceStore((s) => s.deleteTransaction);
 
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [amount, setAmount] = useState('');
   const [comment, setComment] = useState('');
-  const [date, setDate] = useState(() => toDatetimeLocalValue(new Date()));
-  const [creating, setCreating] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [date, setDate] = useState(nowForInput());
+  const [submitting, setSubmitting] = useState(false);
+  const [target, setTarget] = useState<{ id: number; label: string } | null>(null);
 
-  async function loadAll() {
-    setLoading(true);
-    setError(null);
-    try {
-      const [txs, accs, cats] = await Promise.all([
-        getTransactions(),
-        getAccounts(),
-        getCategories(),
-      ]);
-      setTransactions(
-        [...txs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-      );
-      setAccounts(accs);
-      setCategories(cats);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [typeFilter, setTypeFilter] = useState<TransactionType | 'ALL'>('ALL');
+  const [accountFilter, setAccountFilter] = useState('ALL');
 
   useEffect(() => {
-    loadAll();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  const selectedCategory = categories.find((c) => String(c.id) === categoryId);
+
+  const filtered = useMemo(
+    () =>
+      transactions.filter((t) => {
+        if (typeFilter !== 'ALL' && t.type !== typeFilter) return false;
+        if (accountFilter !== 'ALL' && String(t.account.id) !== accountFilter) return false;
+        return true;
+      }),
+    [transactions, typeFilter, accountFilter],
+  );
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!accountId) {
-      setFormError('Выберите счёт');
-      return;
-    }
-    if (!categoryId) {
-      setFormError('Выберите категорию');
-      return;
-    }
-    const amountValue = Number(amount);
-    if (!amount || !(amountValue > 0)) {
-      setFormError('Введите сумму больше нуля');
-      return;
-    }
-    if (!date) {
-      setFormError('Укажите дату');
-      return;
-    }
-
-    setFormError(null);
-    setCreating(true);
-    try {
-      await createTransaction({
-        accountId: Number(accountId),
-        categoryId: Number(categoryId),
-        amount: amountValue,
-        comment,
-        date,
-      });
+    const parsedAmount = Number(amount);
+    if (!accountId || !categoryId || !parsedAmount) return;
+    setSubmitting(true);
+    const ok = await createTransaction({
+      accountId: Number(accountId),
+      categoryId: Number(categoryId),
+      amount: parsedAmount,
+      comment,
+      date: toBackendDateTime(date),
+    });
+    setSubmitting(false);
+    if (ok) {
       setAmount('');
       setComment('');
-      setDate(toDatetimeLocalValue(new Date()));
-      await loadAll();
-    } catch (err) {
-      setFormError(getErrorMessage(err));
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleDelete(id: number) {
-    if (!window.confirm('Удалить транзакцию?')) return;
-    setDeletingId(id);
-    try {
-      await deleteTransaction(id);
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setDeletingId(null);
     }
   }
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-ink-primary mb-6">Транзакции</h1>
+      <PageHeader title="Операции" subtitle="Каждая копейка дохода и расхода — под учётом" />
 
-      <div className="card p-5 mb-6">
-        <h2 className="text-sm font-medium text-ink-secondary mb-4">Новая транзакция</h2>
+      <Card className="mb-6 p-5">
         {accounts.length === 0 || categories.length === 0 ? (
-          <p className="text-sm text-ink-muted">
-            Чтобы создать транзакцию, сначала добавьте хотя бы один счёт и одну категорию.
+          <p className="text-sm text-ink-secondary">
+            Сначала создайте хотя бы один счёт и одну категорию, чтобы добавить операцию.
           </p>
         ) : (
-          <form onSubmit={handleCreate} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <label className="label" htmlFor="tx-account">Счёт</label>
-              <select
-                id="tx-account"
-                className="input"
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-              >
-                <option value="">Выберите счёт</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="tx-category">Категория</label>
-              <select
-                id="tx-category"
-                className="input"
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">Выберите категорию</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.type === 'INCOME' ? 'доход' : 'расход'})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="label" htmlFor="tx-amount">Сумма</label>
-              <input
-                id="tx-amount"
-                type="number"
-                min="0.01"
-                step="0.01"
-                className="input"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="tx-date">Дата</label>
-              <input
-                id="tx-date"
-                type="datetime-local"
-                className="input"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-1">
-              <label className="label" htmlFor="tx-comment">Комментарий</label>
-              <input
-                id="tx-comment"
-                type="text"
-                className="input"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Необязательно"
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
-              <button type="submit" className="btn-primary" disabled={creating}>
-                {creating ? 'Создаём…' : 'Добавить транзакцию'}
-              </button>
+          <form onSubmit={handleCreate} className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Select label="Счёт" value={accountId} onChange={(e) => setAccountId(e.target.value)} required>
+              <option value="" disabled>
+                Выберите счёт
+              </option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+            <Select label="Категория" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required>
+              <option value="" disabled>
+                Выберите категорию
+              </option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} · {c.type === 'INCOME' ? 'доход' : 'расход'}
+                </option>
+              ))}
+            </Select>
+            <Input
+              label="Сумма"
+              type="number"
+              step="0.01"
+              min="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              required
+            />
+            <Input
+              label="Комментарий"
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Необязательно"
+            />
+            <Input label="Дата" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} required />
+            <div className="sm:col-span-2 lg:col-span-5 flex items-center justify-between gap-3">
+              {selectedCategory && (
+                <Chip tone={selectedCategory.type === 'INCOME' ? 'income' : 'expense'}>
+                  Тип определится автоматически: {selectedCategory.type === 'INCOME' ? 'доход' : 'расход'}
+                </Chip>
+              )}
+              <Button type="submit" loading={submitting} className="ml-auto">
+                <Plus className="h-4 w-4" />
+                Добавить операцию
+              </Button>
             </div>
           </form>
         )}
-        {formError && <div className="mt-3"><ErrorText message={formError} /></div>}
+      </Card>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {(['ALL', 'INCOME', 'EXPENSE'] as const).map((v) => (
+          <button key={v} onClick={() => setTypeFilter(v)}>
+            <Chip tone={typeFilter === v ? 'accent' : 'neutral'}>
+              {v === 'ALL' ? 'Все типы' : v === 'INCOME' ? 'Доходы' : 'Расходы'}
+            </Chip>
+          </button>
+        ))}
+        <select
+          value={accountFilter}
+          onChange={(e) => setAccountFilter(e.target.value)}
+          className="rounded-full border border-base-600 bg-base-800 px-3 py-1 text-xs text-ink-secondary outline-none"
+        >
+          <option value="ALL">Все счета</option>
+          {accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {error && <div className="mb-4"><ErrorText message={error} /></div>}
-
-      {loading ? (
-        <p className="text-ink-muted text-sm">Загрузка…</p>
-      ) : transactions.length === 0 ? (
-        <div className="card p-8 text-center text-ink-muted text-sm">Транзакций пока нет.</div>
+      {loading && transactions.length === 0 ? (
+        <Spinner />
+      ) : filtered.length === 0 ? (
+        <EmptyState icon={<ArrowLeftRight className="h-5 w-5" />} title="Операций пока нет" />
       ) : (
-        <div className="card overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3 font-medium whitespace-nowrap">Дата</th>
-                <th className="px-4 py-3 font-medium">Счёт</th>
-                <th className="px-4 py-3 font-medium">Категория</th>
-                <th className="px-4 py-3 font-medium text-right">Сумма</th>
-                <th className="px-4 py-3 font-medium">Комментарий</th>
-                <th className="px-4 py-3 font-medium text-right">Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((tx) => (
-                <tr key={tx.id} className="border-b border-border last:border-b-0">
-                  <td className="px-4 py-3 whitespace-nowrap text-ink-secondary tabular-nums">
-                    {formatDateTime(tx.date)}
-                  </td>
-                  <td className="px-4 py-3 text-ink-primary">{tx.account?.name ?? '—'}</td>
-                  <td className="px-4 py-3 text-ink-primary">{tx.category?.name ?? '—'}</td>
-                  <td
-                    className={`px-4 py-3 text-right tabular-nums font-medium ${
-                      tx.type === 'INCOME' ? 'text-good' : 'text-bad'
-                    }`}
-                  >
-                    {tx.type === 'INCOME' ? '+' : '-'}
-                    {amountFormatter.format(tx.amount)}
-                  </td>
-                  <td className="px-4 py-3 text-ink-secondary break-words max-w-xs">
-                    {tx.comment || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(tx.id)}
-                      disabled={deletingId === tx.id}
-                      className="text-ink-muted hover:text-bad"
-                    >
-                      Удалить
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-3">
+          <AnimatePresence>
+            {filtered.map((t) => (
+              <Card key={t.id} className="flex items-center gap-4 p-4">
+                <div
+                  className={clsx(
+                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+                    t.type === 'INCOME' ? 'bg-income/15 text-income' : 'bg-expense/15 text-expense',
+                  )}
+                >
+                  {t.type === 'INCOME' ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-sm font-medium text-ink-primary">{t.category.name}</span>
+                    <Chip tone="neutral" className="!px-2 !py-0.5">
+                      {t.account.name}
+                    </Chip>
+                  </div>
+                  {t.comment && <p className="mt-0.5 truncate text-xs text-ink-muted">{t.comment}</p>}
+                  <p className="mt-0.5 text-xs text-ink-muted">{formatDateTime(t.date)}</p>
+                </div>
+                <span className={clsx('shrink-0 text-base font-semibold', t.type === 'INCOME' ? 'text-income' : 'text-expense')}>
+                  {t.type === 'INCOME' ? '+' : '-'}
+                  {formatMoney(Math.abs(t.amount))}
+                </span>
+                <button
+                  onClick={() => setTarget({ id: t.id, label: `${t.category.name} · ${formatMoney(t.amount)}` })}
+                  className="text-ink-muted transition-colors hover:text-expense"
+                  aria-label="Удалить операцию"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </Card>
+            ))}
+          </AnimatePresence>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!target}
+        title="Удалить операцию?"
+        description={target ? `Операция «${target.label}» будет удалена, баланс счёта пересчитается.` : undefined}
+        onCancel={() => setTarget(null)}
+        onConfirm={async () => {
+          if (target) await deleteTransaction(target.id);
+          setTarget(null);
+        }}
+      />
     </div>
   );
 }

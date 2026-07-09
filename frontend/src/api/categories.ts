@@ -1,21 +1,14 @@
-import { client } from './client';
-import type { Category, TransactionType } from './types';
+import { api } from './client';
+import type { Category, CategoryRequest, MessageResponse } from '../types';
 
-export interface CategoryPayload {
-  name: string;
-  type: TransactionType;
+export function getCategories() {
+  return api.get<Category[]>('/category').then((r) => r.data);
 }
 
-export async function getCategories(): Promise<Category[]> {
-  const { data } = await client.get<Category[]>('/category');
-  return data;
+export function createCategory(request: CategoryRequest) {
+  return api.post<Category>('/category', request).then((r) => r.data);
 }
 
-export async function createCategory(payload: CategoryPayload): Promise<Category> {
-  const { data } = await client.post<Category>('/category', payload);
-  return data;
-}
-
-export async function deleteCategory(id: number): Promise<void> {
-  await client.delete(`/category/${id}`);
+export function deleteCategory(id: number) {
+  return api.delete<MessageResponse>(`/category/${id}`).then((r) => r.data);
 }

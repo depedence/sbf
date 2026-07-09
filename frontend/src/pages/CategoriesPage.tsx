@@ -1,151 +1,159 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { createCategory, deleteCategory, getCategories } from '../api/categories';
-import { getErrorMessage } from '../api/client';
-import type { Category, TransactionType } from '../api/types';
-import ErrorText from '../components/ErrorText';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Plus, Tags, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
+import { PageHeader } from '../components/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Chip } from '../components/ui/Chip';
+import { EmptyState } from '../components/ui/EmptyState';
+import { Spinner } from '../components/ui/Spinner';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { useFinanceStore } from '../store/financeStore';
+import type { TransactionType } from '../types';
+import clsx from 'clsx';
 
-export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const FILTERS: { value: TransactionType | 'ALL'; label: string }[] = [
+  { value: 'ALL', label: 'Все' },
+  { value: 'INCOME', label: 'Доходы' },
+  { value: 'EXPENSE', label: 'Расходы' },
+];
+
+export function CategoriesPage() {
+  const categories = useFinanceStore((s) => s.categories);
+  const loading = useFinanceStore((s) => s.categoriesLoading);
+  const fetchCategories = useFinanceStore((s) => s.fetchCategories);
+  const createCategory = useFinanceStore((s) => s.createCategory);
+  const deleteCategory = useFinanceStore((s) => s.deleteCategory);
 
   const [name, setName] = useState('');
   const [type, setType] = useState<TransactionType>('EXPENSE');
-  const [creating, setCreating] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  async function loadCategories() {
-    setLoading(true);
-    setError(null);
-    try {
-      setCategories(await getCategories());
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [filter, setFilter] = useState<TransactionType | 'ALL'>('ALL');
+  const [submitting, setSubmitting] = useState(false);
+  const [target, setTarget] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
-    loadCategories();
-  }, []);
+    fetchCategories();
+  }, [fetchCategories]);
+
+  const visible = useMemo(
+    () => (filter === 'ALL' ? categories : categories.filter((c) => c.type === filter)),
+    [categories, filter],
+  );
 
   async function handleCreate(e: FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      setFormError('Введите название категории');
-      return;
-    }
-    setFormError(null);
-    setCreating(true);
-    try {
-      await createCategory({ name: name.trim(), type });
-      setName('');
-      setType('EXPENSE');
-      await loadCategories();
-    } catch (err) {
-      setFormError(getErrorMessage(err));
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function handleDelete(id: number) {
-    if (!window.confirm('Удалить категорию?')) return;
-    setDeletingId(id);
-    try {
-      await deleteCategory(id);
-      setCategories((prev) => prev.filter((c) => c.id !== id));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setDeletingId(null);
-    }
+    if (!name.trim()) return;
+    setSubmitting(true);
+    const ok = await createCategory({ name: name.trim(), type });
+    setSubmitting(false);
+    if (ok) setName('');
   }
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-ink-primary mb-6">Категории</h1>
+      <PageHeader title="Категории" subtitle="Группируйте операции по смыслу — еда, транспорт, зарплата" />
 
-      <div className="card p-5 mb-6">
-        <h2 className="text-sm font-medium text-ink-secondary mb-4">Новая категория</h2>
-        <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-3 sm:items-end">
-          <div className="flex-1">
-            <label className="label" htmlFor="category-name">Название</label>
-            <input
-              id="category-name"
-              type="text"
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Например, Продукты"
-            />
+      <Card className="mb-6 p-5">
+        <form onSubmit={handleCreate} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <Input
+                label="Название категории"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Например, Продукты"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setType('INCOME')}
+                className={clsx(
+                  'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  type === 'INCOME'
+                    ? 'border-income/40 bg-income/15 text-income'
+                    : 'border-base-600 text-ink-secondary hover:border-income/30',
+                )}
+              >
+                <TrendingUp className="h-4 w-4" /> Доход
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('EXPENSE')}
+                className={clsx(
+                  'flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                  type === 'EXPENSE'
+                    ? 'border-expense/40 bg-expense/15 text-expense'
+                    : 'border-base-600 text-ink-secondary hover:border-expense/30',
+                )}
+              >
+                <TrendingDown className="h-4 w-4" /> Расход
+              </button>
+            </div>
+            <Button type="submit" loading={submitting} disabled={!name.trim()}>
+              <Plus className="h-4 w-4" />
+              Добавить
+            </Button>
           </div>
-          <div className="sm:w-48">
-            <label className="label" htmlFor="category-type">Тип</label>
-            <select
-              id="category-type"
-              className="input"
-              value={type}
-              onChange={(e) => setType(e.target.value as TransactionType)}
-            >
-              <option value="EXPENSE">Расход</option>
-              <option value="INCOME">Доход</option>
-            </select>
-          </div>
-          <button type="submit" className="btn-primary shrink-0" disabled={creating}>
-            {creating ? 'Создаём…' : 'Добавить'}
-          </button>
         </form>
-        {formError && <div className="mt-3"><ErrorText message={formError} /></div>}
+      </Card>
+
+      <div className="mb-4 flex gap-2">
+        {FILTERS.map((f) => (
+          <button key={f.value} onClick={() => setFilter(f.value)}>
+            <Chip tone={filter === f.value ? 'accent' : 'neutral'}>{f.label}</Chip>
+          </button>
+        ))}
       </div>
 
-      {error && <div className="mb-4"><ErrorText message={error} /></div>}
-
-      {loading ? (
-        <p className="text-ink-muted text-sm">Загрузка…</p>
-      ) : categories.length === 0 ? (
-        <div className="card p-8 text-center text-ink-muted text-sm">Категорий пока нет.</div>
+      {loading && categories.length === 0 ? (
+        <Spinner />
+      ) : visible.length === 0 ? (
+        <EmptyState icon={<Tags className="h-5 w-5" />} title="Категорий пока нет" />
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-ink-muted">
-                <th className="px-4 py-3 font-medium">Название</th>
-                <th className="px-4 py-3 font-medium">Тип</th>
-                <th className="px-4 py-3 font-medium text-right">Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((category) => (
-                <tr key={category.id} className="border-b border-border last:border-b-0">
-                  <td className="px-4 py-3 text-ink-primary">{category.name}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        category.type === 'INCOME' ? 'bg-good/10 text-good' : 'bg-bad/10 text-bad'
-                      }`}
-                    >
-                      {category.type === 'INCOME' ? 'Доход' : 'Расход'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(category.id)}
-                      disabled={deletingId === category.id}
-                      className="text-ink-muted hover:text-bad"
-                    >
-                      Удалить
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <AnimatePresence>
+            {visible.map((category) => (
+              <Card key={category.id} className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={clsx(
+                      'flex h-9 w-9 items-center justify-center rounded-lg',
+                      category.type === 'INCOME' ? 'bg-income/15 text-income' : 'bg-expense/15 text-expense',
+                    )}
+                  >
+                    {category.type === 'INCOME' ? (
+                      <TrendingUp className="h-4 w-4" />
+                    ) : (
+                      <TrendingDown className="h-4 w-4" />
+                    )}
+                  </div>
+                  <span className="text-sm font-medium text-ink-primary">{category.name}</span>
+                </div>
+                <button
+                  onClick={() => setTarget({ id: category.id, name: category.name })}
+                  className="text-ink-muted transition-colors hover:text-expense"
+                  aria-label="Удалить категорию"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </Card>
+            ))}
+          </AnimatePresence>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!target}
+        title="Удалить категорию?"
+        description={target ? `Категория «${target.name}» будет удалена без возможности восстановления.` : undefined}
+        onCancel={() => setTarget(null)}
+        onConfirm={async () => {
+          if (target) await deleteCategory(target.id);
+          setTarget(null);
+        }}
+      />
     </div>
   );
 }
