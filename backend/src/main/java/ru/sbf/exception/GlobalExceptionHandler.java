@@ -1,6 +1,7 @@
 package ru.sbf.exception;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.sbf.dto.response.MessageResponse;
@@ -26,5 +27,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<MessageResponse> handleIllegalArgument(IllegalArgumentException e) {
         return ResponseEntity.status(400).body(new MessageResponse(e.getMessage()));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<MessageResponse> handleNotReadable(HttpMessageNotReadableException e) {
+        return ResponseEntity.status(400).body(new MessageResponse("Bad Request"));
     }
 }

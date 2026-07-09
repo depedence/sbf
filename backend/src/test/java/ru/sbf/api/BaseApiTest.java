@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import ru.sbf.api.helpers.DataBaseCleaner;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.ANY)
@@ -21,13 +22,14 @@ public abstract class BaseApiTest {
     int port;
 
     protected RequestSpecification requestSpec;
+    protected RequestSpecification authSpec;
     protected ResponseSpecification responseSpec;
 
     @Autowired
     DataBaseCleaner dataBaseCleaner;
 
     @BeforeEach
-    void setup() {
+    void setupRestAssured() {
         dataBaseCleaner.cleanDb();
         RestAssured.baseURI = "http://localhost";
         RestAssured.basePath = "/api";

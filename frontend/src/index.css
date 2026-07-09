@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-plane text-ink-primary antialiased;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  input[type='text'],
+  input[type='email'],
+  input[type='password'],
+  input[type='number'],
+  input[type='date'],
+  input[type='datetime-local'],
+  select,
+  textarea {
+    color-scheme: dark;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-lg;
+  }
+
+  .input {
+    @apply w-full rounded-md bg-raised border border-border px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-accent transition-colors;
+  }
+
+  .label {
+    @apply block text-xs font-medium text-ink-secondary mb-1;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-hover;
+  }
+
+  .btn-secondary {
+    @apply btn bg-raised text-ink-primary border border-border hover:bg-surface;
+  }
+
+  .btn-danger {
+    @apply btn bg-transparent text-bad border border-bad/30 hover:bg-bad/10;
+  }
+}

@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import ru.sbf.api.BaseApiTest;
-import ru.sbf.api.DataFactory;
+import ru.sbf.api.helpers.DataFactory;
 import ru.sbf.api.client.AuthClient;
 import ru.sbf.api.model.LoginModel;
 import ru.sbf.api.model.RegisterModel;

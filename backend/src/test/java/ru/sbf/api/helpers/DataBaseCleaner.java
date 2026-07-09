@@ -1,4 +1,4 @@
-package ru.sbf.api;
+package ru.sbf.api.helpers;
 
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
