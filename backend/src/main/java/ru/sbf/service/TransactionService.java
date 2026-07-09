@@ -27,9 +27,11 @@ public class TransactionService {
     @Transactional
     public Transaction createTransaction(TransactionRequest request) {
         User user = userService.getCurrentUser();
-        Account account = accountRepository.findByIdAndUser(request.getAccountId(), user)
+        Account account = accountRepository
+                .findByIdAndUser(request.getAccountId(), user)
                 .orElseThrow(() -> new AppException.NotFoundException("Account not found"));
-        Category category = categoryRepository.findByIdAndUser(request.getCategoryId(), user)
+        Category category = categoryRepository
+                .findByIdAndUser(request.getCategoryId(), user)
                 .orElseThrow(() -> new AppException.NotFoundException("Category not found"));
 
         Transaction transaction = new Transaction();
@@ -56,12 +58,16 @@ public class TransactionService {
     }
 
     public void deleteTransaction(Long transactionId) {
-        Transaction transaction = transactionRepository.findById(transactionId)
+        Transaction transaction = transactionRepository
+                .findById(transactionId)
                 .orElseThrow(() -> new AppException.NotFoundException("Transaction not found"));
 
         User currentUser = userService.getCurrentUser();
 
-        if (!transaction.getUser().getId().equals(currentUser.getId())) {
+        if (!transaction
+                .getUser()
+                .getId()
+                .equals(currentUser.getId())) {
             throw new AppException.AccessDeniedException("Access denied");
         }
 
