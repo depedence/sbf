@@ -1,130 +1,72 @@
-import { FormEvent, useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../api/auth';
-import { getErrorMessage } from '../api/client';
+import { UserPlus } from 'lucide-react';
+import { AuthShell } from '../components/AuthShell';
+import { Input } from '../components/ui/Input';
+import { Button } from '../components/ui/Button';
 import { useAuthStore } from '../store/authStore';
-import ErrorText from '../components/ErrorText';
 
-export default function RegisterPage() {
+export function RegisterPage() {
+  const register = useAuthStore((s) => s.register);
+  const authBusy = useAuthStore((s) => s.authBusy);
   const navigate = useNavigate();
-  const setAuth = useAuthStore((s) => s.login);
-
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  function validate(): boolean {
-    if (!name.trim()) {
-      setValidationError('Введите имя');
-      return false;
-    }
-    if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email)) {
-      setValidationError('Введите корректный email');
-      return false;
-    }
-    if (password.length < 6) {
-      setValidationError('Пароль должен содержать не менее 6 символов');
-      return false;
-    }
-    if (password !== confirmPassword) {
-      setValidationError('Пароли не совпадают');
-      return false;
-    }
-    setValidationError(null);
-    return true;
-  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    setApiError(null);
-    if (!validate()) return;
-
-    setLoading(true);
-    try {
-      const { token } = await register({ name: name.trim(), email: email.trim(), password });
-      setAuth(token);
-      navigate('/dashboard', { replace: true });
-    } catch (err) {
-      setApiError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
+    const ok = await register(name, email, password);
+    if (ok) navigate('/', { replace: true });
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center px-4">
-      <div className="card w-full max-w-sm p-6">
-        <h1 className="text-lg font-semibold text-ink-primary mb-1">Регистрация</h1>
-        <p className="text-sm text-ink-muted mb-6">Создайте аккаунт, чтобы начать</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <div>
-            <label className="label" htmlFor="name">Имя</label>
-            <input
-              id="name"
-              type="text"
-              className="input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Иван Иванов"
-              autoComplete="name"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              className="input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="password">Пароль</label>
-            <input
-              id="password"
-              type="password"
-              className="input"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
-          <div>
-            <label className="label" htmlFor="confirmPassword">Подтвердите пароль</label>
-            <input
-              id="confirmPassword"
-              type="password"
-              className="input"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
-          </div>
-
-          <ErrorText message={validationError ?? apiError} />
-
-          <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? 'Создаём аккаунт…' : 'Зарегистрироваться'}
-          </button>
-        </form>
-
-        <p className="mt-5 text-sm text-ink-muted text-center">
-          Уже есть аккаунт?{' '}
-          <Link to="/login" className="text-accent hover:text-accent-hover">
-            Войти
-          </Link>
-        </p>
+    <AuthShell>
+      <div className="mb-6 flex items-center gap-2">
+        <UserPlus className="h-5 w-5 text-accent" />
+        <h2 className="text-xl font-semibold text-ink-primary">Создать аккаунт</h2>
       </div>
-    </div>
+      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+        <Input
+          label="Имя"
+          type="text"
+          name="name"
+          autoComplete="name"
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Александр"
+        />
+        <Input
+          label="Email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+        />
+        <Input
+          label="Пароль"
+          type="password"
+          name="password"
+          autoComplete="new-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="••••••••"
+        />
+        <Button type="submit" loading={authBusy} className="mt-2 w-full">
+          Зарегистрироваться
+        </Button>
+      </form>
+      <p className="mt-6 text-center text-sm text-ink-secondary">
+        Уже есть аккаунт?{' '}
+        <Link to="/login" className="font-medium text-accent hover:text-accent-hover">
+          Войти
+        </Link>
+      </p>
+    </AuthShell>
   );
 }

@@ -1,42 +1,80 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-interface DecodedToken {
-  email: string | null;
-  exp: number | null;
-}
-
-function decodeToken(token: string): DecodedToken {
-  try {
-    const payload = token.split('.')[1];
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const json = JSON.parse(atob(normalized));
-    return { email: json.sub ?? null, exp: json.exp ?? null };
-  } catch {
-    return { email: null, exp: null };
-  }
-}
+import * as authApi from '../api/auth';
+import { getErrorMessage } from '../api/client';
+import { AUTH_INVALIDATED_EVENT, tokenStorage } from '../lib/tokenStorage';
+import { emailFromToken, isTokenExpired } from '../lib/jwt';
+import { toast } from './toastStore';
 
 interface AuthState {
   token: string | null;
   email: string | null;
-  isAuthenticated: boolean;
-  login: (token: string) => void;
-  logout: () => void;
+  authBusy: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  logout: (silent?: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      token: null,
-      email: null,
-      isAuthenticated: false,
-      login: (token: string) => {
-        const decoded = decodeToken(token);
-        set({ token, email: decoded.email, isAuthenticated: true });
-      },
-      logout: () => set({ token: null, email: null, isAuthenticated: false }),
-    }),
-    { name: 'sbf-auth' },
-  ),
-);
+function validInitialToken(): string | null {
+  const token = tokenStorage.get();
+  if (!token || isTokenExpired(token)) return null;
+  return token;
+}
+
+export const useAuthStore = create<AuthState>((set) => {
+  if (typeof window !== 'undefined') {
+    window.addEventListener(AUTH_INVALIDATED_EVENT, () => {
+      set({ token: null, email: null });
+      toast.warning('Сессия истекла — войдите снова');
+    });
+  }
+
+  const initialToken = validInitialToken();
+
+  return {
+    token: initialToken,
+    email: initialToken ? emailFromToken(initialToken) : null,
+    authBusy: false,
+
+    login: async (email, password) => {
+      set({ authBusy: true });
+      try {
+        const { token } = await authApi.login(email, password);
+        tokenStorage.set(token);
+        const decodedEmail = emailFromToken(token) ?? email;
+        set({ token, email: decodedEmail });
+        toast.success(`С возвращением, ${decodedEmail}!`);
+        return true;
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Не удалось войти'));
+        return false;
+      } finally {
+        set({ authBusy: false });
+      }
+    },
+
+    register: async (name, email, password) => {
+      set({ authBusy: true });
+      try {
+        const { token } = await authApi.register(name, email, password);
+        tokenStorage.set(token);
+        const decodedEmail = emailFromToken(token) ?? email;
+        set({ token, email: decodedEmail });
+        toast.success(`Аккаунт создан — добро пожаловать, ${name}!`);
+        return true;
+      } catch (err) {
+        toast.error(getErrorMessage(err, 'Не удалось зарегистрироваться'));
+        return false;
+      } finally {
+        set({ authBusy: false });
+      }
+    },
+
+    logout: (silent) => {
+      tokenStorage.clear();
+      set({ token: null, email: null });
+      if (!silent) toast.info('Вы вышли из аккаунта');
+    },
+  };
+});
+
+export const selectIsAuthenticated = (state: AuthState) => !!state.token;

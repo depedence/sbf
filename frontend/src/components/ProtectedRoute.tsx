@@ -1,12 +1,20 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 
-export default function ProtectedRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+export function ProtectedRoute() {
+  const token = useAuthStore((s) => s.token);
+  const location = useLocation();
 
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+  if (!token) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
+  return <Outlet />;
+}
 
+export function PublicOnlyRoute() {
+  const token = useAuthStore((s) => s.token);
+  if (token) {
+    return <Navigate to="/" replace />;
+  }
   return <Outlet />;
 }

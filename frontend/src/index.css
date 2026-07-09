@@ -1,57 +1,39 @@
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+@import '@fontsource/jetbrains-mono/700.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  html,
-  body,
-  #root {
-    height: 100%;
+  html {
+    color-scheme: dark;
   }
 
   body {
-    @apply bg-plane text-ink-primary antialiased;
-    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    @apply bg-base-950 font-mono text-ink-primary antialiased;
   }
 
-  input[type='text'],
-  input[type='email'],
-  input[type='password'],
-  input[type='number'],
-  input[type='date'],
-  input[type='datetime-local'],
-  select,
-  textarea {
-    color-scheme: dark;
-  }
-}
-
-@layer components {
-  .card {
-    @apply bg-surface border border-border rounded-lg;
+  ::selection {
+    @apply bg-accent/40 text-ink-primary;
   }
 
-  .input {
-    @apply w-full rounded-md bg-raised border border-border px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted outline-none focus:border-accent transition-colors;
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
   }
 
-  .label {
-    @apply block text-xs font-medium text-ink-secondary mb-1;
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none;
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-base-600;
   }
 
-  .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-hover;
-  }
-
-  .btn-secondary {
-    @apply btn bg-raised text-ink-primary border border-border hover:bg-surface;
-  }
-
-  .btn-danger {
-    @apply btn bg-transparent text-bad border border-bad/30 hover:bg-bad/10;
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-base-500;
   }
 }

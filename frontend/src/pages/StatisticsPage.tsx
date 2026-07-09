@@ -1,185 +1,151 @@
-import { FormEvent, useEffect, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  LabelList,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { getStatistic } from '../api/statistics';
-import { getErrorMessage } from '../api/client';
-import type { StatisticResponse } from '../api/types';
-import { toDatetimeLocalValue } from '../lib/datetime';
-import ErrorText from '../components/ErrorText';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { motion } from 'framer-motion';
+import { BarChart3, TrendingDown, TrendingUp, Wallet } from 'lucide-react';
+import { PageHeader } from '../components/PageHeader';
+import { Card } from '../components/ui/Card';
+import { Input } from '../components/ui/Input';
+import { Spinner } from '../components/ui/Spinner';
+import { EmptyState } from '../components/ui/EmptyState';
+import { useFinanceStore } from '../store/financeStore';
+import { endOfToday, formatMoney, startOfMonth, toDateInputValue, toLocalDateTimeString } from '../lib/format';
 
-const amountFormatter = new Intl.NumberFormat('ru-RU', {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-function startOfMonth(): Date {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+function StatCard({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  tone: 'accent' | 'income' | 'expense';
+}) {
+  const toneClasses = {
+    accent: 'bg-accent/15 text-accent',
+    income: 'bg-income/15 text-income',
+    expense: 'bg-expense/15 text-expense',
+  }[tone];
+  return (
+    <Card className="p-5">
+      <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${toneClasses}`}>{icon}</div>
+      <p className="mt-4 text-xs font-medium text-ink-secondary">{label}</p>
+      <p className="mt-1 text-2xl font-semibold text-ink-primary">{value}</p>
+    </Card>
+  );
 }
 
-interface CategoryDatum {
-  name: string;
-  amount: number;
-}
+export function StatisticsPage() {
+  const categories = useFinanceStore((s) => s.categories);
+  const fetchCategories = useFinanceStore((s) => s.fetchCategories);
+  const statistic = useFinanceStore((s) => s.statistic);
+  const loading = useFinanceStore((s) => s.statisticLoading);
+  const fetchStatistic = useFinanceStore((s) => s.fetchStatistic);
 
-export default function StatisticsPage() {
-  const [from, setFrom] = useState(() => toDatetimeLocalValue(startOfMonth()));
-  const [to, setTo] = useState(() => toDatetimeLocalValue(new Date()));
-  const [stats, setStats] = useState<StatisticResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load(fromValue: string, toValue: string) {
-    setLoading(true);
-    setError(null);
-    try {
-      setStats(await getStatistic(fromValue, toValue));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [from, setFrom] = useState(toDateInputValue(startOfMonth()));
+  const [to, setTo] = useState(toDateInputValue(endOfToday()));
 
   useEffect(() => {
-    load(from, to);
-    // Only run once on mount — subsequent range changes are triggered by the form submit.
-  }, []);
+    fetchCategories();
+  }, [fetchCategories]);
 
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!from || !to) {
-      setError('Укажите обе даты периода');
-      return;
-    }
-    load(from, to);
-  }
+  useEffect(() => {
+    const fromDate = new Date(`${from}T00:00:00`);
+    const toDate = new Date(`${to}T23:59:59`);
+    fetchStatistic(toLocalDateTimeString(fromDate), toLocalDateTimeString(toDate));
+  }, [from, to, fetchStatistic]);
 
-  const difference = stats ? stats.totalIncome - stats.totalExpense : 0;
+  const chartData = useMemo(() => {
+    if (!statistic) return [];
+    return Object.entries(statistic.byCategory)
+      .map(([name, value]) => {
+        const category = categories.find((c) => c.name === name);
+        return { name, value, type: category?.type ?? 'EXPENSE' };
+      })
+      .sort((a, b) => b.value - a.value);
+  }, [statistic, categories]);
 
-  const categoryData: CategoryDatum[] = stats
-    ? Object.entries(stats.byCategory)
-        .map(([name, amount]) => ({ name, amount }))
-        .sort((a, b) => b.amount - a.amount)
-    : [];
-
-  const chartHeight = Math.max(120, categoryData.length * 40 + 40);
+  const net = statistic ? statistic.totalIncome - statistic.totalExpense : 0;
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-ink-primary mb-6">Статистика</h1>
+      <PageHeader title="Статистика" subtitle="Доходы и расходы за выбранный период" />
 
-      <form onSubmit={handleSubmit} className="card p-5 mb-6 flex flex-col sm:flex-row gap-3 sm:items-end">
-        <div className="flex-1">
-          <label className="label" htmlFor="stat-from">С</label>
-          <input
-            id="stat-from"
-            type="datetime-local"
-            className="input"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
+      <Card className="mb-6 p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <Input label="С" type="date" value={from} onChange={(e) => setFrom(e.target.value)} max={to} />
+          <Input label="По" type="date" value={to} onChange={(e) => setTo(e.target.value)} min={from} />
         </div>
-        <div className="flex-1">
-          <label className="label" htmlFor="stat-to">По</label>
-          <input
-            id="stat-to"
-            type="datetime-local"
-            className="input"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-        <button type="submit" className="btn-primary shrink-0" disabled={loading}>
-          {loading ? 'Считаем…' : 'Показать'}
-        </button>
-      </form>
+      </Card>
 
-      {error && <div className="mb-6"><ErrorText message={error} /></div>}
-
-      {stats && (
+      {loading && !statistic ? (
+        <Spinner />
+      ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-3 mb-6">
-            <div className="card p-5">
-              <p className="text-xs font-medium text-ink-secondary mb-2">Доходы</p>
-              <p className="text-2xl font-semibold tabular-nums text-good">
-                {amountFormatter.format(stats.totalIncome)}
-              </p>
-            </div>
-            <div className="card p-5">
-              <p className="text-xs font-medium text-ink-secondary mb-2">Расходы</p>
-              <p className="text-2xl font-semibold tabular-nums text-bad">
-                {amountFormatter.format(stats.totalExpense)}
-              </p>
-            </div>
-            <div className="card p-5">
-              <p className="text-xs font-medium text-ink-secondary mb-2">Разница</p>
-              <p className={`text-2xl font-semibold tabular-nums ${difference >= 0 ? 'text-good' : 'text-bad'}`}>
-                {difference >= 0 ? '+' : ''}
-                {amountFormatter.format(difference)}
-              </p>
-            </div>
+          <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard
+              icon={<TrendingUp className="h-5 w-5" />}
+              label="Доходы"
+              value={formatMoney(statistic?.totalIncome ?? 0)}
+              tone="income"
+            />
+            <StatCard
+              icon={<TrendingDown className="h-5 w-5" />}
+              label="Расходы"
+              value={formatMoney(statistic?.totalExpense ?? 0)}
+              tone="expense"
+            />
+            <StatCard
+              icon={<Wallet className="h-5 w-5" />}
+              label="Баланс за период"
+              value={formatMoney(net)}
+              tone="accent"
+            />
           </div>
 
-          <div className="card p-5">
-            <p className="text-sm font-medium text-ink-secondary mb-4">Траты по категориям</p>
-            {categoryData.length === 0 ? (
-              <p className="text-sm text-ink-muted">Нет данных за выбранный период.</p>
+          <Card className="p-5">
+            <h3 className="mb-4 text-sm font-medium text-ink-secondary">Разбивка по категориям</h3>
+            {chartData.length === 0 ? (
+              <EmptyState icon={<BarChart3 className="h-5 w-5" />} title="Нет операций за этот период" />
             ) : (
-              <ResponsiveContainer width="100%" height={chartHeight}>
-                <BarChart
-                  data={categoryData}
-                  layout="vertical"
-                  margin={{ top: 4, right: 32, bottom: 4, left: 4 }}
-                  barCategoryGap={12}
-                >
-                  <CartesianGrid horizontal={false} stroke="#2c2c2a" />
-                  <XAxis
-                    type="number"
-                    tick={{ fill: '#898781', fontSize: 12 }}
-                    axisLine={{ stroke: '#383835' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={120}
-                    tick={{ fill: '#c3c2b7', fontSize: 12 }}
-                    axisLine={{ stroke: '#383835' }}
-                    tickLine={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'rgba(255,255,255,0.06)' }}
-                    contentStyle={{
-                      background: '#1a1a19',
-                      border: '1px solid rgba(255,255,255,0.10)',
-                      borderRadius: 8,
-                      color: '#ffffff',
-                    }}
-                    labelStyle={{ color: '#c3c2b7' }}
-                    formatter={(value) => [amountFormatter.format(Number(value)), 'Сумма']}
-                  />
-                  <Bar dataKey="amount" fill="#3987e5" radius={[0, 4, 4, 0]} maxBarSize={28}>
-                    <LabelList
-                      dataKey="amount"
-                      position="right"
-                      formatter={(value: unknown) => amountFormatter.format(Number(value))}
-                      fill="#c3c2b7"
-                      fontSize={12}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+                style={{ width: '100%', height: Math.max(220, chartData.length * 44) }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} layout="vertical" margin={{ left: 12, right: 24 }}>
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={120}
+                      tick={{ fill: '#a8acba', fontSize: 12, fontFamily: 'JetBrains Mono' }}
+                      axisLine={false}
+                      tickLine={false}
                     />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+                    <Tooltip
+                      cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                      contentStyle={{
+                        background: '#1c1e25',
+                        border: '1px solid #31343f',
+                        borderRadius: 10,
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: 12,
+                      }}
+                      formatter={(value: number) => formatMoney(value)}
+                    />
+                    <Bar dataKey="value" radius={[0, 6, 6, 0]} animationDuration={700}>
+                      {chartData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.type === 'INCOME' ? '#34d399' : '#fb7185'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </motion.div>
             )}
-          </div>
+          </Card>
         </>
       )}
     </div>
