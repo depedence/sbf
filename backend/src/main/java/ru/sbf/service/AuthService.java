@@ -1,6 +1,5 @@
 package ru.sbf.service;
 
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -45,7 +44,8 @@ public class AuthService {
         }
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AppException.NotFoundException("User with email " + request.getEmail() + " not found"));
+                .orElseThrow(() -> new AppException.NotFoundException(
+                        "User with email " + request.getEmail() + " not found"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("Invalid password");
